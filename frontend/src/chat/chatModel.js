@@ -38,8 +38,9 @@ export function agentHistory(messages) {
  * @param {object} options
  * @param {() => number} options.getRevision current committed revision
  * @param {((history: {role, content}[]) => Promise<{reply: string, proposal: object|null}>) | null} [options.agent]
+ * @param {((text: string) => Promise<void>) | null} [options.speak] reads a reply aloud (voice turns only)
  */
-export function createChatModel({ getRevision, agent = null }) {
+export function createChatModel({ getRevision, agent = null, speak = null }) {
   let nextId = 1;
   let proposal = null;
   let busy = false;
@@ -51,13 +52,17 @@ export function createChatModel({ getRevision, agent = null }) {
     nextId += 1;
   };
 
-  async function askAgent() {
+  async function askAgent({ spoken }) {
     busy = true;
     proposal = null; // a new turn replaces any earlier proposal
     notify();
     try {
       const result = await agent(agentHistory(messages));
-      if (typeof result?.reply === 'string' && result.reply) push('assistant', result.reply);
+      if (typeof result?.reply === 'string' && result.reply) {
+        push('assistant', result.reply);
+        // A spoken question gets a spoken answer; typed turns stay silent. Playback never blocks the chat.
+        if (spoken && speak) Promise.resolve().then(() => speak(result.reply)).catch(() => {});
+      }
       // The reply bubble already carries the summary, so the card shows only the change list.
       if (result?.proposal) proposal = { ...result.proposal, id: result.proposal.proposalId, summary: '' };
     } catch (error) {
@@ -82,9 +87,9 @@ export function createChatModel({ getRevision, agent = null }) {
 
     /**
      * A customer message. Returns { ok, done } and never touches the design.
-     * `done` resolves when the agent's answer (if any) has arrived.
+     * `done` resolves when the agent's answer (if any) has arrived. `spoken` marks a voice turn.
      */
-    send(rawText) {
+    send(rawText, { spoken = false } = {}) {
       if (busy) return { ok: false, reason: 'busy' };
       const text = String(rawText ?? '').trim();
       if (!text) return { ok: false, reason: 'empty' };
@@ -95,7 +100,13 @@ export function createChatModel({ getRevision, agent = null }) {
         notify();
         return { ok: true, done: Promise.resolve() };
       }
-      return { ok: true, done: askAgent() };
+      return { ok: true, done: askAgent({ spoken }) };
+    },
+
+    /** A local note in the conversation (never sent to the agent). */
+    note(text) {
+      push('system', text);
+      notify();
     },
 
     /** Set by the agent turn, or by the dev-only demo. */

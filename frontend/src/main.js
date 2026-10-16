@@ -5,7 +5,10 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
-import { applyProposal, getCatalog, getDefaultDesign, sendChat } from './api/client.js';
+import {
+  applyProposal, getCatalog, getDefaultDesign, sendChat, speakText, transcribeAudio,
+} from './api/client.js';
+import { createPlayer, createRecorder, voiceSupported } from './chat/voice.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
@@ -82,9 +85,16 @@ async function boot() {
     const { design, revision } = store.getState();
     return sendChat({ messages, design, revision });
   };
-  const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent });
+  // Voice (chained pipeline): speech -> text -> the same agent -> the reply read aloud.
+  const player = createPlayer();
+  const voice = voiceSupported()
+    ? { recorder: createRecorder(), transcribe: (blob) => transcribeAudio(blob), stopPlayback: player.stop }
+    : null;
+  const speak = async (text) => player.play(await speakText(text));
+  const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent, speak });
   const chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel,
+    voice,
     onConfirm: (proposal) => confirmProposal(store, chatModel, proposal),
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.

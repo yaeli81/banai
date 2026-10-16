@@ -93,6 +93,39 @@ test.describe('AI chat agent', () => {
     await expect(page.getByTestId('proposal-card')).toHaveCount(0);
   });
 
+  test('voice: speak → transcript bubble → proposal → reply read aloud; nothing changes before Confirm', async ({ page }) => {
+    await openDesigner(page);
+    const before = await revisionOf(page);
+    const mic = page.getByTestId('chat-mic');
+    await mic.click();
+    await expect(mic).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.chat__hint')).toContainText('Listening');
+    await page.waitForTimeout(600); // a short "utterance" from the fake microphone
+    const speech = page.waitForRequest((r) => r.url().endsWith('/api/voice/speech'));
+    await mic.click();
+
+    // The fake transcriber returns "Make it 240 cm wide"; it is sent like a typed message.
+    await expect(page.locator('.chat__bubble--user')).toHaveText('Make it 240 cm wide');
+    await expect(page.getByTestId('proposal-card')).toContainText('Width 200 cm → 240 cm');
+    expect(JSON.parse((await speech).postData()).text).toBe('Here is a proposal based on your request.');
+    expect(await revisionOf(page)).toBe(before);
+    await expect(mic).toHaveAttribute('aria-pressed', 'false');
+
+    await page.getByTestId('proposal-confirm').click();
+    await expect(page.getByText('W 240.0 cm', { exact: true })).toBeVisible();
+    expect(await revisionOf(page)).toBe(before + 1);
+  });
+
+  test('voice: a typed message is never read aloud', async ({ page }) => {
+    await openDesigner(page);
+    let spoken = 0;
+    page.on('request', (r) => { if (r.url().endsWith('/api/voice/speech')) spoken += 1; });
+    await ask(page, 'Make it 220 cm wide');
+    await expect(page.getByTestId('proposal-card')).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(spoken).toBe(0);
+  });
+
   test('a proposal shows Confirm/Cancel, goes stale after a manual edit, and Cancel changes nothing', async ({ page }) => {
     await openDesigner(page);
     await page.evaluate(() => {

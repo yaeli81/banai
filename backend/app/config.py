@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_chat_model: str = "gpt-5.4-mini-2026-03-17"
     openai_timeout_seconds: float = 30.0
+    # Voice (chained pipeline: transcribe -> the same chat agent -> speech). Configurable defaults.
+    openai_transcribe_model: str = "gpt-4o-mini-transcribe-2025-12-15"
+    openai_tts_model: str = "gpt-4o-mini-tts-2025-12-15"
+    openai_tts_voice: str = "alloy"
     agent_mode: Literal["openai", "fake"] = "openai"
 
     proposal_signing_key: SecretStr | None = None
@@ -31,12 +35,13 @@ class Settings(BaseSettings):
     # Per-client limit on /api/chat (each turn may call the LLM up to 3 times).
     chat_rate_limit_per_minute: int = 20
 
-    @field_validator("openai_chat_model", mode="before")
+    @field_validator("openai_chat_model", "openai_transcribe_model", "openai_tts_model", "openai_tts_voice",
+                     mode="before")
     @classmethod
-    def _default_model_when_blank(cls, value: object) -> object:
-        # `.env.example` ships `OPENAI_CHAT_MODEL=` empty: treat that as "use the default".
+    def _default_model_when_blank(cls, value: object, info) -> object:
+        # `.env.example` ships these empty: treat that as "use the default".
         if isinstance(value, str) and not value.strip():
-            return cls.model_fields["openai_chat_model"].default
+            return cls.model_fields[info.field_name].default
         return value
 
     @model_validator(mode="after")
