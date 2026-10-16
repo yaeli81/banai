@@ -21,7 +21,7 @@ describe('proposalStatus', () => {
 describe('chat model', () => {
   it('adds the customer message and an honest not-connected reply, and never an assistant answer', () => {
     const model = createChatModel({ getRevision: () => 1 });
-    expect(model.send('  240 cm wide  ')).toEqual({ ok: true });
+    expect(model.send('  240 cm wide  ')).toMatchObject({ ok: true });
     const messages = model.getMessages();
     expect(messages.map((m) => m.role)).toEqual(['user', 'system']);
     expect(messages[0].text).toBe('240 cm wide');

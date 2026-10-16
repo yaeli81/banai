@@ -1,6 +1,6 @@
 // Left column: header, a welcome with starter prompts, the conversation, the proposal card and
-// the composer. The agent is not connected until Phase 5, so this panel never changes the design
-// by itself and says so plainly.
+// the composer. This panel never changes the design by itself: a proposal is only applied by the
+// host's onConfirm, after the customer presses Confirm.
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH, SUGGESTIONS } from './chatModel.js';
@@ -15,7 +15,9 @@ export function mountChat(container, { model, onConfirm }) {
       el('h2', { className: 'chat__title', text: 'AI Designer' }),
       el('p', { className: 'chat__subtitle', text: 'Design assistant' }),
     ]),
-    el('span', { className: 'chat__status', text: 'Coming soon', attrs: { title: 'The AI agent is not connected yet (planned for Phase 5).' } }),
+    model.isConnected()
+      ? el('span', { className: 'chat__status chat__status--online', text: 'Online', attrs: { title: 'Proposals are applied only after you confirm them.' } })
+      : el('span', { className: 'chat__status', text: 'Offline', attrs: { title: 'The AI agent is not connected.' } }),
   ]);
 
   const input = el('textarea', { className: 'chat__input', attrs: { rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'Describe your wardrobe…', 'aria-label': 'Message to the AI designer' } });
@@ -43,6 +45,9 @@ export function mountChat(container, { model, onConfirm }) {
 
   const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation' } });
   list.dataset.testid = 'chat-messages';
+  const thinking = el('div', { className: 'chat__thinking', attrs: { role: 'status', 'aria-label': 'The designer is thinking' } },
+    [el('span', { className: 'chat__dot' }), el('span', { className: 'chat__dot' }), el('span', { className: 'chat__dot' })]);
+  thinking.dataset.testid = 'chat-thinking';
   const proposalSlot = el('div', { className: 'chat__proposal' });
 
   const submit = () => {
@@ -77,24 +82,28 @@ export function mountChat(container, { model, onConfirm }) {
       list.append(bubble);
     });
     renderedCount = messages.length;
+    const busy = model.isBusy();
+    thinking.hidden = !busy || model.getProposal() !== null; // a confirm in progress shows on the card
+    sendButton.disabled = busy;
     list.scrollTop = list.scrollHeight;
 
-    // Re-render the card only when the proposal or its status changed (keeps its entrance animation calm).
+    // Re-render the card only when the proposal, its status or the busy flag changed (keeps its entrance animation calm).
     const proposal = model.getProposal();
     const status = model.getProposalStatus();
-    const key = proposal ? `${proposal.id}:${status}` : '';
+    const key = proposal ? `${proposal.id}:${status}:${busy}` : '';
     if (key === renderedProposalKey) return;
     renderedProposalKey = key;
     proposalSlot.replaceChildren();
     if (proposal) {
       proposalSlot.append(renderProposalCard(proposal, status, {
+        busy,
         onConfirm,
         onCancel: () => model.cancelProposal(),
       }));
     }
   }
 
-  container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, hint]));
+  container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, thinking, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, hint]));
   model.subscribe(render);
   render();
 

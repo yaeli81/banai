@@ -9,6 +9,9 @@ Configuration (environment variables, all optional):
                        entry in ~/.claude.json, so no secret lives in the repo.
   OBSIDIAN_BASE_URL    Default: https://127.0.0.1:27124
   OBSIDIAN_WORKLOG     Vault path. Default: BanAI/10 - Work Log.md
+  OBSIDIAN_VAULT_DIR   Vault folder on disk, used when the REST API is not
+                       reachable (Obsidian closed). Default: the open vault
+                       listed in Obsidian's own obsidian.json.
 
 Never blocks the agent: every failure is reported on stderr and exits 0.
 """
@@ -162,6 +165,35 @@ def append_to_obsidian(entry: str, api_key: str) -> None:
         pass
 
 
+def find_vault_dir() -> Path | None:
+    configured = os.environ.get("OBSIDIAN_VAULT_DIR")
+    if configured:
+        return Path(configured)
+    appdata = os.environ.get("APPDATA")
+    config_path = (
+        Path(appdata) / "obsidian" / "obsidian.json"
+        if appdata
+        else Path.home() / ".config" / "obsidian" / "obsidian.json"
+    )
+    try:
+        vaults = json.loads(config_path.read_text(encoding="utf-8"))["vaults"].values()
+    except (OSError, KeyError, ValueError, AttributeError):
+        return None
+    vaults = sorted(vaults, key=lambda v: (not v.get("open"), -v.get("ts", 0)))
+    return Path(vaults[0]["path"]) if vaults else None
+
+
+def append_to_file(entry: str) -> None:
+    vault_dir = find_vault_dir()
+    if not vault_dir:
+        raise RuntimeError("no Obsidian vault folder found")
+    note = vault_dir / os.environ.get("OBSIDIAN_WORKLOG", DEFAULT_WORKLOG)
+    if not note.exists():
+        raise RuntimeError(f"work log not found: {note}")
+    with open(note, "a", encoding="utf-8", newline="\n") as handle:
+        handle.write(entry)
+
+
 def main() -> int:
     try:
         payload = read_payload()
@@ -174,13 +206,15 @@ def main() -> int:
         reply = payload.get("last_assistant_message") or reply
         if not prompt:
             return 0
-        api_key = load_api_key()
-        if not api_key:
-            print("obsidian_worklog: no OBSIDIAN_API_KEY available", file=sys.stderr)
-            return 0
         cwd = payload.get("cwd") or os.getcwd()
         entry = build_entry(prompt, reply, cwd, payload.get("session_id", ""))
-        append_to_obsidian(entry, api_key)
+        api_key = load_api_key()
+        try:
+            if not api_key:
+                raise RuntimeError("no OBSIDIAN_API_KEY available")
+            append_to_obsidian(entry, api_key)
+        except Exception:  # noqa: BLE001 - Obsidian closed: write the note directly
+            append_to_file(entry)
     except Exception as error:  # noqa: BLE001 - a logging hook must never block the agent
         print(f"obsidian_worklog: {error}", file=sys.stderr)
     return 0

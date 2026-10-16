@@ -4,7 +4,7 @@ import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { STALE_MESSAGE } from './chatModel.js';
 
-export function renderProposalCard(proposal, status, { onConfirm, onCancel }) {
+export function renderProposalCard(proposal, status, { onConfirm, onCancel, busy = false }) {
   const stale = status === 'stale';
   const rows = proposal.changes.map((change) => el('li', { className: 'proposal__row' }, [
     el('span', { className: 'proposal__title', text: change.title }),
@@ -13,11 +13,12 @@ export function renderProposalCard(proposal, status, { onConfirm, onCancel }) {
 
   const confirm = el('button', { className: 'btn btn--primary', attrs: { type: 'button' } }, [icon('check', { size: 18 }), document.createTextNode(' Confirm')]);
   confirm.dataset.testid = 'proposal-confirm';
-  confirm.disabled = stale;
+  confirm.disabled = stale || busy;
   confirm.addEventListener('click', () => onConfirm(proposal));
 
   const cancel = el('button', { className: 'btn', text: 'Cancel', attrs: { type: 'button' } });
   cancel.dataset.testid = 'proposal-cancel';
+  cancel.disabled = busy;
   cancel.addEventListener('click', () => onCancel(proposal));
 
   const card = el('section', { className: `proposal${stale ? ' proposal--stale' : ''}`, attrs: { 'aria-label': 'Proposed changes' } }, [
@@ -25,7 +26,7 @@ export function renderProposalCard(proposal, status, { onConfirm, onCancel }) {
       el('h3', { className: 'proposal__heading', text: 'Proposed changes' }),
       el('span', { className: 'proposal__count', text: `${proposal.changes.length} ${proposal.changes.length === 1 ? 'item' : 'items'}` }),
     ]),
-    el('p', { className: 'proposal__summary', text: proposal.summary }),
+    ...(proposal.summary ? [el('p', { className: 'proposal__summary', text: proposal.summary })] : []),
     el('ul', { className: 'proposal__list' }, rows),
     el('p', { className: 'proposal__note', text: 'Not applied yet. Confirm to apply these changes to your design.' }),
     el('div', { className: 'button-row' }, [confirm, cancel]),
