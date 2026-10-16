@@ -7,6 +7,7 @@ and design content are never concatenated into the instructions.
 from __future__ import annotations
 
 import json
+import re
 
 from app.agent.tools import REPLY_TARGET_CHARS
 from app.domain.defaults import LIMITS
@@ -54,6 +55,19 @@ Reply style (the chat bubble shows at most three short lines):
 - No filler such as "while keeping everything else unchanged"; the change list is shown separately.
 - Talk in cm; never mention mm, ops, ids, tools or "rendering".
 """
+
+
+# Scripts the model reliably tells apart; anything else falls back to the prompt's language rule.
+_SCRIPTS = (("Hebrew", re.compile(r"[֐-׿]")), ("Arabic", re.compile(r"[؀-ۿ]")),
+            ("Russian", re.compile(r"[Ѐ-ӿ]")))
+
+
+def language_hint(text: str) -> dict | None:
+    """A deterministic reply-language reminder, placed last so it outweighs the English design data."""
+    for language, script in _SCRIPTS:
+        if script.search(text):
+            return {"role": "system", "content": f"The customer wrote in {language}. Reply in {language}."}
+    return None
 
 
 def context_message(design: dict, catalog: dict) -> dict:

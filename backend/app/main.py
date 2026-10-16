@@ -2,12 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, health, proposals, reference
+from app.api import chat, health, proposals, reference, voice
 from app.api.errors import error_response
 from app.config import get_settings
 
 # A design is bounded by the schema caps; 512 KB leaves ample headroom for a request.
 MAX_BODY_BYTES = 512 * 1024
+# Recordings have their own cap (also enforced while streaming the body, in api/voice.py).
+BODY_LIMITS = {"/api/voice/transcribe": voice.MAX_AUDIO_BYTES}
 
 
 def create_app() -> FastAPI:
@@ -30,7 +32,8 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def limit_body_size(request: Request, call_next):
         length = request.headers.get("content-length")
-        if length is not None and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+        limit = BODY_LIMITS.get(request.url.path, MAX_BODY_BYTES)
+        if length is not None and (not length.isdigit() or int(length) > limit):
             return error_response(413, "TOO_LARGE", "The request is too large.")
         return await call_next(request)
 
@@ -43,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(reference.router)
     app.include_router(chat.router)
     app.include_router(proposals.router)
+    app.include_router(voice.router)
     return app
 
 

@@ -51,7 +51,33 @@ Nothing changes until the customer presses **Confirm**. Implements `docs/archite
 | `PROPOSAL_SIGNING_KEY` | random per process | **Required in production.** If you rotate it, pending proposals stop working. |
 | `AGENT_MODE` | `openai` | `fake` runs the scripted `FakeLlm`. It's allowed only with `APP_ENV=test`/`e2e`, and Playwright uses it. |
 
+## Voice (chained pipeline)
+The customer can speak instead of typing. Voice is only an input and output layer around the same agent.
+
+1. **Record.** The mic button records one utterance with `MediaRecorder` (opus/webm, or mp4 on Safari) until it's tapped again, or for at most 30 s.
+2. **Transcribe.** `POST /api/voice/transcribe` with the raw audio body.
+   - Accepted `Content-Type`: `audio/webm`, `ogg`, `mp4`, `mpeg`, `wav`; anything else is 415.
+   - Max 1 MB (413). An empty body is 422.
+   - Returns `{text}` only, cleaned like any model text. It does **not** call the agent.
+   - A vocabulary prompt (EN and HE wardrobe terms) improves accuracy. It doesn't force a language.
+3. **Ask.** The transcript is sent to `/api/chat` exactly like a typed message, and it appears as the customer's bubble, so mis-hearing is visible.
+4. **Speak.** For voice turns only, the reply (at most 105 characters) goes to `POST /api/voice/speech {text ≤ 200}`, which returns `audio/mpeg`. The reply plays once, and a new recording stops it. Typed turns stay silent.
+5. **Confirm and Cancel stay clicks.** Voice never applies a change.
+
+Other rules:
+- Voice shares the chat rate limit. It returns 503 without a key and 502 on provider errors.
+- Audio is never stored or logged.
+- **Reply language:** when the latest message is in Hebrew, Arabic or Russian script, the server adds a last system line,
+  "The customer wrote in X. Reply in X." The model alone sometimes answered a Hebrew transcript in English.
+
+| Variable | Default |
+|---|---|
+| `OPENAI_TRANSCRIBE_MODEL` | `gpt-4o-mini-transcribe-2025-12-15` |
+| `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts-2025-12-15` |
+| `OPENAI_TTS_VOICE` | `alloy` |
+
 ## Tests
 - `backend/tests/agent/` and `backend/tests/test_api_agent.py` use a scripted LLM and make no network calls.
 - `frontend/tests/unit/chat/chatAgent.test.js` and `client.test.js`.
-- `frontend/tests/e2e/ux.spec.js` › "AI chat agent" runs the full stack with the fake agent.
+- `frontend/tests/e2e/ux.spec.js` › "AI chat agent" runs the full stack with the fake agent, including voice. Chromium's fake microphone is used, and `FakeVoice` returns a fixed transcript and a silent WAV.
+- `backend/tests/test_api_voice.py` and `frontend/tests/unit/chat/voice.test.js`.

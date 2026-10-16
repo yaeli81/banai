@@ -7,8 +7,8 @@ import { STALE_MESSAGE } from './chatModel.js';
 export function renderProposalCard(proposal, status, { onConfirm, onCancel, busy = false }) {
   const stale = status === 'stale';
   const rows = proposal.changes.map((change) => el('li', { className: 'proposal__row' }, [
-    el('span', { className: 'proposal__title', text: change.title }),
-    el('span', { className: 'proposal__detail', text: change.detail }),
+    el('span', { className: 'proposal__title', text: change.title, attrs: { dir: 'auto' } }),
+    el('span', { className: 'proposal__detail', text: change.detail, attrs: { dir: 'auto' } }),
   ]));
 
   const confirm = el('button', { className: 'btn btn--primary', attrs: { type: 'button' } }, [icon('check', { size: 18 }), document.createTextNode(' Confirm')]);

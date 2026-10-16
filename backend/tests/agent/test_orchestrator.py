@@ -122,3 +122,15 @@ def test_design_is_sent_as_data_after_the_system_prompt(design, catalog):
     assert sent[0]["role"] == "system" and "currentDesign" not in sent[0]["content"]
     assert sent[1]["role"] == "user" and '"currentDesign"' in sent[1]["content"]
     assert [m["content"] for m in sent[2:]] == ["hi", "Hello", "wider"]
+
+
+def test_hebrew_message_gets_an_explicit_reply_language_hint_last(design, catalog):
+    llm = ScriptedLlm(tool("ask_clarification", {"question": "?"}))
+    turn(llm, design, catalog, messages=[{"role": "user", "content": "תעשה אותו רחב יותר"}])
+    assert llm.calls[0][-1] == {"role": "system", "content": "The customer wrote in Hebrew. Reply in Hebrew."}
+
+
+def test_latin_message_gets_no_language_hint(design, catalog):
+    llm = ScriptedLlm(tool("ask_clarification", {"question": "?"}))
+    turn(llm, design, catalog)
+    assert llm.calls[0][-1]["role"] == "user"

@@ -67,6 +67,8 @@ def run_turn(
 ) -> dict:
     conversation = [{"role": "system", "content": prompts.SYSTEM_PROMPT}, prompts.context_message(design, catalog)]
     conversation += [{"role": m["role"], "content": m["content"]} for m in messages]
+    if hint := prompts.language_hint(messages[-1]["content"]):
+        conversation.append(hint)
 
     for _attempt in range(MAX_REPAIRS + 1):
         reply = llm.complete(conversation, tools())

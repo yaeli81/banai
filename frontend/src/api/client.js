@@ -25,30 +25,33 @@ async function getJson(path, fetchImpl) {
 
 const GENERIC_ERROR = 'The design service could not be reached. Please try again.';
 
-async function postJson(path, payload, fetchImpl) {
+async function post(path, init, fetchImpl) {
   if (!API_BASE_URL) throw new ApiError('The API base URL is not configured', { code: 'NOT_CONFIGURED' });
-  let response;
   try {
-    response = await fetchImpl(`${API_BASE_URL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    return await fetchImpl(`${API_BASE_URL}${path}`, { method: 'POST', ...init });
   } catch {
     throw new ApiError(GENERIC_ERROR);
   }
-  let body = null;
-  try {
-    body = await response.json();
-  } catch {
-    // Non-JSON error page (proxy, crash): fall through to the generic error below.
-  }
+}
+
+const toApiError = (status, body) => new ApiError(
+  typeof body?.error?.message === 'string' ? body.error.message : GENERIC_ERROR,
+  { status, code: typeof body?.error?.code === 'string' ? body.error.code : 'HTTP_ERROR' },
+);
+
+// Non-JSON bodies (proxy error pages, crashes) read as null and map to the generic error.
+const readJson = (response) => response.json().catch(() => null);
+
+/** Throws the server's envelope error (or a generic one) for a failed response. */
+async function throwFor(response) {
+  throw toApiError(response.status, await readJson(response));
+}
+
+async function postJson(path, payload, fetchImpl) {
+  const response = await post(path, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, fetchImpl);
+  const body = await readJson(response);
   if (response.ok && body?.success === true) return body.data;
-  const error = body?.error;
-  throw new ApiError(typeof error?.message === 'string' ? error.message : GENERIC_ERROR, {
-    status: response.status,
-    code: typeof error?.code === 'string' ? error.code : 'HTTP_ERROR',
-  });
+  throw toApiError(response.status, body);
 }
 
 export const getHealth = (fetchImpl = fetch) => getJson('/api/health', fetchImpl).then((data) => ({ success: true, data }));
@@ -65,3 +68,23 @@ export const sendChat = ({ messages, design, revision }, fetchImpl = fetch) =>
 /** Apply a signed proposal. Returns { design, revision }; throws ApiError code 'STALE' (409) when outdated. */
 export const applyProposal = ({ design, revision, proposal }, fetchImpl = fetch) =>
   postJson('/api/proposals/apply', { design, revision, proposal }, fetchImpl);
+
+/** Recorded audio -> text. The text is then sent to the agent like a typed message. */
+export async function transcribeAudio(blob, fetchImpl = fetch) {
+  // "audio/webm;codecs=opus" -> "audio/webm" (the server allowlists base types).
+  const type = (blob.type || 'audio/webm').split(';', 1)[0];
+  const response = await post('/api/voice/transcribe', { headers: { 'Content-Type': type }, body: blob }, fetchImpl);
+  if (!response.ok) await throwFor(response);
+  const body = await response.json();
+  if (body?.success !== true || typeof body.data?.text !== 'string') throw new ApiError(GENERIC_ERROR, { code: 'HTTP_ERROR' });
+  return body.data.text;
+}
+
+/** A short reply -> audio Blob to play. */
+export async function speakText(text, fetchImpl = fetch) {
+  const response = await post('/api/voice/speech', {
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+  }, fetchImpl);
+  if (!response.ok) await throwFor(response);
+  return response.blob();
+}
