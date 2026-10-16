@@ -122,9 +122,42 @@ export function createViewer(container, store) {
     labels.render(scene, camera);
   });
 
+  /**
+   * A still image of the committed design for documents (e.g. the carpenter PDF), rendered off-screen on a
+   * white background from a fixed front-three-quarter view. The live view, selection and toggles are untouched.
+   */
+  function snapshot({ doorsVisible = true, width = 1600, height = 1100 } = {}) {
+    const { design } = store.getState();
+    const offscreen = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    offscreen.setPixelRatio(1);
+    offscreen.setSize(width, height, false);
+    offscreen.outputColorSpace = THREE.SRGBColorSpace;
+    const stage = createScene();
+    stage.background = new THREE.Color('#ffffff');
+    const still = buildWardrobe(design, materials, { doorsVisible });
+    stage.add(still);
+    const shot = new THREE.PerspectiveCamera(35, width / height, 0.05, 60);
+    const { width: w, height: h, depth: d } = design.dimensions;
+    const center = new THREE.Vector3(toM(w / 2), toM(h / 2), toM(-d / 2));
+    const fitHeight = toM(Math.max(h, (w * height) / width)) / (2 * Math.tan(THREE.MathUtils.degToRad(shot.fov / 2)));
+    const distance = fitHeight * 1.25;
+    shot.position.set(center.x + distance * 0.32, center.y + distance * 0.1, distance);
+    shot.lookAt(center);
+    try {
+      offscreen.render(stage, shot);
+      return offscreen.domElement.toDataURL('image/png');
+    } finally {
+      stage.remove(still);
+      disposeWardrobe(still);
+      offscreen.dispose();
+      offscreen.forceContextLoss();
+    }
+  }
+
   return {
     camera,
     controls,
+    snapshot,
     canvas: renderer.domElement,
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */

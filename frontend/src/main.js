@@ -6,7 +6,7 @@ import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
 import {
-  applyProposal, getCatalog, getDefaultDesign, sendChat, speakText, transcribeAudio,
+  applyProposal, downloadCarpenterPdf, getCatalog, getDefaultDesign, sendChat, speakText, transcribeAudio,
 } from './api/client.js';
 import { createPlayer, createRecorder, voiceSupported } from './chat/voice.js';
 import { createStore } from './state/store.js';
@@ -30,6 +30,35 @@ function bindInteriorToggle(store) {
   const toggle = document.getElementById('toggle-interior');
   toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
+}
+
+/** "Carpenter PDF": two still images of the committed design + the server-built spec sheet, downloaded. */
+function bindCarpenterPdf(store, viewer) {
+  const button = document.getElementById('carpenter-pdf');
+  const label = button.textContent;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    button.textContent = 'Preparing…';
+    document.getElementById('error-banner').hidden = true; // a retry clears an earlier failure
+    try {
+      const { design } = store.getState();
+      const images = { closed: viewer.snapshot({ doorsVisible: true }), interior: viewer.snapshot({ doorsVisible: false }) };
+      const pdf = await downloadCarpenterPdf({ design, images });
+      const url = URL.createObjectURL(pdf);
+      const link = Object.assign(document.createElement('a'), {
+        href: url, download: `banai-wardrobe-${new Date().toISOString().slice(0, 10)}.pdf`,
+      });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (error) {
+      showError(error?.code ? error.message : 'The carpenter PDF could not be created. Please try again.');
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
+    }
+  });
 }
 
 function bindDialogs() {
@@ -79,6 +108,7 @@ async function boot() {
   bindInteriorToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
+  bindCarpenterPdf(store, viewer);
 
   // The agent always sees the latest committed design and revision.
   const agent = (messages) => {

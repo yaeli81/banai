@@ -80,6 +80,15 @@ export async function transcribeAudio(blob, fetchImpl = fetch) {
   return body.data.text;
 }
 
+/** The carpenter spec sheet (PDF Blob) for a design and its two 3D images (PNG data URLs). */
+export async function downloadCarpenterPdf({ design, images }, fetchImpl = fetch) {
+  const response = await post('/api/carpenter/pdf', {
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ design, images }),
+  }, fetchImpl);
+  if (!response.ok) await throwFor(response);
+  return response.blob();
+}
+
 /** A short reply -> audio Blob to play. */
 export async function speakText(text, fetchImpl = fetch) {
   const response = await post('/api/voice/speech', {
