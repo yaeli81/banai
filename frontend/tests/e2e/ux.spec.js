@@ -152,6 +152,31 @@ test.describe('AI chat agent', () => {
   });
 });
 
+test.describe('carpenter PDF', () => {
+  test('downloads a 3-page PDF of the committed design and leaves the live view untouched', async ({ page }) => {
+    await openDesigner(page);
+    await page.evaluate(() => window.__banai.store.select('shf_l1'));
+    const before = await page.evaluate(() => {
+      const s = window.__banai.store.getState();
+      return { revision: s.revision, selection: s.selection, doorsVisible: s.ui.doorsVisible };
+    });
+    const download = page.waitForEvent('download');
+    await page.getByTestId('carpenter-pdf').click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^banai-wardrobe-\d{4}-\d{2}-\d{2}\.pdf$/);
+    const bytes = await (await import('node:fs/promises')).readFile(await file.path());
+    expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
+    expect((bytes.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length).toBe(3);
+    await expect(page.getByTestId('carpenter-pdf')).toHaveText('Carpenter PDF');
+    const after = await page.evaluate(() => {
+      const s = window.__banai.store.getState();
+      return { revision: s.revision, selection: s.selection, doorsVisible: s.ui.doorsVisible };
+    });
+    expect(after).toEqual(before);
+    await expect(page.locator('#error-banner')).toBeHidden();
+  });
+});
+
 test.describe('look and feel', () => {
   test('shows the BanAI logo in the top bar and on the start screen', async ({ page }) => {
     await page.goto('/');

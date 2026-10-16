@@ -2,14 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, health, proposals, reference, voice
+from app.api import carpenter, chat, health, proposals, reference, voice
 from app.api.errors import error_response
 from app.config import get_settings
 
 # A design is bounded by the schema caps; 512 KB leaves ample headroom for a request.
 MAX_BODY_BYTES = 512 * 1024
-# Recordings have their own cap (also enforced while streaming the body, in api/voice.py).
-BODY_LIMITS = {"/api/voice/transcribe": voice.MAX_AUDIO_BYTES}
+# Recordings and the carpenter PDF (two 3D images) have their own caps.
+BODY_LIMITS = {"/api/voice/transcribe": voice.MAX_AUDIO_BYTES, "/api/carpenter/pdf": carpenter.MAX_BODY_BYTES}
 
 
 def create_app() -> FastAPI:
@@ -47,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(proposals.router)
     app.include_router(voice.router)
+    app.include_router(carpenter.router)
     return app
 
 

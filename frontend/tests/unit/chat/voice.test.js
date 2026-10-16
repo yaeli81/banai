@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPlayer, createRecorder, voiceSupported } from '../../../src/chat/voice.js';
-import { ApiError, speakText, transcribeAudio } from '../../../src/api/client.js';
+import { ApiError, downloadCarpenterPdf, speakText, transcribeAudio } from '../../../src/api/client.js';
 import { createChatModel } from '../../../src/chat/chatModel.js';
 
 function fakeMedia({ deny = false, supported = ['audio/webm;codecs=opus'] } = {}) {
@@ -143,5 +143,22 @@ describe('chat model with voice', () => {
     model.note("I didn't catch that.");
     await model.send('hello').done;
     expect(agent.mock.calls[0][0]).toEqual([{ role: 'user', content: 'hello' }]);
+  });
+});
+
+describe('carpenter pdf client', () => {
+  it('posts the design with both images and returns the PDF blob', async () => {
+    const pdf = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+    const fetchImpl = vi.fn(async () => ({ ok: true, blob: async () => pdf }));
+    const payload = { design: { a: 1 }, images: { closed: 'data:image/png;base64,AA', interior: 'data:image/png;base64,BB' } };
+    await expect(downloadCarpenterPdf(payload, fetchImpl)).resolves.toBe(pdf);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe('http://localhost:8000/api/carpenter/pdf');
+    expect(JSON.parse(init.body)).toEqual(payload);
+  });
+
+  it('surfaces the server error code', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: false, status: 422, json: async () => ({ success: false, error: { code: 'INVALID_IMAGE', message: 'The 3D images could not be read.' } }) }));
+    await expect(downloadCarpenterPdf({ design: {}, images: {} }, fetchImpl)).rejects.toMatchObject({ code: 'INVALID_IMAGE', status: 422 });
   });
 });
