@@ -67,6 +67,26 @@ export function createStore({ design, revision = 1, catalog }) {
       return { ok: true };
     },
 
+    /**
+     * Commit a design the server produced (an applied proposal). It is validated like any other
+     * input, and the revision must move forward. Returns { ok } like dispatch.
+     */
+    commitDesign(design, revision) {
+      if (!Number.isInteger(revision) || revision <= state.revision) {
+        return { ok: false, error: new DomainError('SCHEMA_INVALID', 'revision', 'revision must move forward') };
+      }
+      let next;
+      try {
+        next = applyOps(design, [], state.catalog);
+      } catch (error) {
+        if (error instanceof DomainError) return { ok: false, error };
+        throw error;
+      }
+      const selection = state.selection && resolveSelection(next, state.selection.id);
+      commit({ design: next, revision, selection });
+      return { ok: true };
+    },
+
     select(id) {
       const selection = id === null ? null : resolveSelection(state.design, id);
       const hideDoors = selection !== null && INTERIOR_KINDS.has(selection.kind) && state.ui.doorsVisible;

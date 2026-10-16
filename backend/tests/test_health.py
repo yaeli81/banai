@@ -16,6 +16,7 @@ def test_api_docs_are_hidden_in_production(monkeypatch):
     from app.main import create_app
 
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("PROPOSAL_SIGNING_KEY", "production-test-key")  # required in production
     get_settings.cache_clear()
     try:
         client = TestClient(create_app())

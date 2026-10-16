@@ -5,7 +5,7 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
-import { getCatalog, getDefaultDesign } from './api/client.js';
+import { applyProposal, getCatalog, getDefaultDesign, sendChat } from './api/client.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
@@ -36,6 +36,29 @@ function bindDialogs() {
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
+/**
+ * Confirm: the server verifies the signature and that the design is unchanged, then applies the ops.
+ * The committed design changes only here, and only with the server's validated result.
+ */
+async function confirmProposal(store, chatModel, proposal) {
+  const { design, revision } = store.getState();
+  if (proposal.baseRevision !== revision) return; // stale: the card already disables Confirm
+  chatModel.setBusy(true);
+  try {
+    const result = await applyProposal({ design, revision, proposal });
+    const committed = store.commitDesign(result.design, result.revision);
+    chatModel.resolveProposal(committed.ok
+      ? 'Changes applied to your design.'
+      : 'The design changed while applying. Nothing was changed; please ask again.');
+  } catch (error) {
+    chatModel.resolveProposal(error?.code === 'STALE'
+      ? 'The design changed after this proposal was made. Nothing was applied; please ask again.'
+      : 'The changes could not be applied. Your design was not changed.');
+  } finally {
+    chatModel.setBusy(false);
+  }
+}
+
 async function boot() {
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
   installRipple();
@@ -54,11 +77,15 @@ async function boot() {
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
 
-  const chatModel = createChatModel({ getRevision: () => store.getState().revision });
-  // The agent is not connected yet, so a proposal can only come from the dev-only demo below.
+  // The agent always sees the latest committed design and revision.
+  const agent = (messages) => {
+    const { design, revision } = store.getState();
+    return sendChat({ messages, design, revision });
+  };
+  const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent });
   const chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel,
-    onConfirm: () => chatModel.resolveProposal('The AI agent is not connected yet, so nothing was applied.'),
+    onConfirm: (proposal) => confirmProposal(store, chatModel, proposal),
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());

@@ -95,4 +95,29 @@ describe('store input validation (Phase 3 security review M1)', () => {
   it('rejects an invalid revision', () => {
     expect(() => createStore({ design: loadDesign('basic'), revision: 0, catalog })).toThrow();
   });
+
+  it('commits a server-applied design with its new revision and keeps a valid selection', () => {
+    const store = makeStore();
+    store.select('shf_l1');
+    const wider = structuredClone(store.getState().design);
+    const applied = createStore({ design: wider, revision: 1, catalog });
+    applied.dispatch([{ op: 'update_dimensions', width: 2400 }]);
+    const listener = vi.fn();
+    store.subscribe(listener);
+    expect(store.commitDesign(applied.getState().design, 2)).toEqual({ ok: true });
+    expect(store.getState().revision).toBe(2);
+    expect(store.getState().design.dimensions.width).toBe(2400);
+    expect(store.getState().selection).toEqual({ id: 'shf_l1', kind: 'shelf' });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a server design that is invalid or does not move the revision forward', () => {
+    const store = makeStore();
+    const before = store.getState();
+    expect(store.commitDesign(before.design, 1).ok).toBe(false);
+    const broken = structuredClone(before.design);
+    broken.dimensions.width = 1;
+    expect(store.commitDesign(broken, 2).ok).toBe(false);
+    expect(store.getState()).toBe(before);
+  });
 });

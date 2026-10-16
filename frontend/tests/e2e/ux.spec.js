@@ -31,16 +31,66 @@ test.describe('start screen', () => {
   });
 });
 
-test.describe('AI chat panel (agent not connected yet)', () => {
-  test('sending a message gets an honest reply and never changes the design', async ({ page }) => {
+// The E2E backend runs the deterministic fake agent (AGENT_MODE=fake), never OpenAI.
+const revisionOf = (page) => page.evaluate(() => window.__banai.store.getState().revision);
+
+async function ask(page, text) {
+  await page.getByTestId('chat-input').fill(text);
+  await page.getByTestId('chat-send').click();
+}
+
+test.describe('AI chat agent', () => {
+  test('a request becomes a proposal that changes nothing until Confirm, then updates the 3D view', async ({ page }) => {
     await openDesigner(page);
-    const before = await page.evaluate(() => window.__banai.store.getState().revision);
-    await page.getByTestId('chat-input').fill('make it 3 m wide');
-    await page.getByTestId('chat-send').click();
-    const messages = page.getByTestId('chat-messages');
-    await expect(messages).toContainText('make it 3 m wide');
-    await expect(messages).toContainText("isn't connected yet");
-    expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(before);
+    await expect(page.locator('.chat__status')).toHaveText('Online');
+    const before = await revisionOf(page);
+    await ask(page, 'Make it 240 cm wide with sliding doors');
+
+    const card = page.getByTestId('proposal-card');
+    await expect(card).toContainText('Width 200 cm → 240 cm');
+    await expect(card).toContainText('Sliding doors');
+    await expect(page.getByTestId('chat-messages')).toContainText('Here is a proposal');
+    // Pending proposals are never part of the committed state.
+    expect(await revisionOf(page)).toBe(before);
+    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
+
+    await page.getByTestId('proposal-confirm').click();
+    await expect(page.getByTestId('chat-messages')).toContainText('Changes applied to your design.');
+    await expect(card).toHaveCount(0);
+    await expect(page.getByText('W 240.0 cm', { exact: true })).toBeVisible();
+    expect(await revisionOf(page)).toBe(before + 1);
+    expect(await page.evaluate(() => window.__banai.store.getState().design.doors.type)).toBe('sliding');
+    await expect(page.getByTestId('dim-width')).toHaveValue('240.0');
+  });
+
+  test('Cancel drops the proposal and changes nothing', async ({ page }) => {
+    await openDesigner(page);
+    const before = await page.evaluate(() => window.__banai.store.getState());
+    await ask(page, 'Make it 300 cm wide');
+    await expect(page.getByTestId('proposal-card')).toBeVisible();
+    await page.getByTestId('proposal-cancel').click();
+    await expect(page.getByTestId('proposal-card')).toHaveCount(0);
+    await expect(page.getByTestId('chat-messages')).toContainText('No changes were made');
+    const after = await page.evaluate(() => window.__banai.store.getState());
+    expect(after.revision).toBe(before.revision);
+    expect(after.design).toEqual(before.design);
+  });
+
+  test('a manual edit makes a real proposal stale', async ({ page }) => {
+    await openDesigner(page);
+    await ask(page, 'Make it 260 cm wide');
+    await expect(page.getByTestId('proposal-confirm')).toBeEnabled();
+    await page.getByTestId('dim-width').fill('210');
+    await page.getByTestId('dim-width').press('Enter');
+    await expect(page.getByTestId('proposal-card')).toContainText('Design changed. Ask the agent to re-propose.');
+    await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
+  });
+
+  test('an unclear request gets a question and no proposal', async ({ page }) => {
+    await openDesigner(page);
+    await ask(page, 'make it nice');
+    await expect(page.locator('.chat__bubble--assistant')).toContainText('What size or doors would you like?');
+    await expect(page.getByTestId('proposal-card')).toHaveCount(0);
   });
 
   test('a proposal shows Confirm/Cancel, goes stale after a manual edit, and Cancel changes nothing', async ({ page }) => {

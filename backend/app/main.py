@@ -1,8 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, reference
+from app.api import chat, health, proposals, reference
+from app.api.errors import error_response
 from app.config import get_settings
+
+# A design is bounded by the schema caps; 512 KB leaves ample headroom for a request.
+MAX_BODY_BYTES = 512 * 1024
 
 
 def create_app() -> FastAPI:
@@ -21,8 +26,23 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=["Authorization", "Content-Type", "If-Match"],
     )
+
+    @app.middleware("http")
+    async def limit_body_size(request: Request, call_next):
+        length = request.headers.get("content-length")
+        if length is not None and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+            return error_response(413, "TOO_LARGE", "The request is too large.")
+        return await call_next(request)
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(_request: Request, _error: RequestValidationError):
+        # Never echo the (untrusted) input back.
+        return error_response(422, "INVALID_REQUEST", "The request is not valid.")
+
     app.include_router(health.router)
     app.include_router(reference.router)
+    app.include_router(chat.router)
+    app.include_router(proposals.router)
     return app
 
 
