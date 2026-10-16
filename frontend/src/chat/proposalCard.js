@@ -26,7 +26,7 @@ export function renderProposalCard(proposal, status, { onConfirm, onCancel, busy
       el('h3', { className: 'proposal__heading', text: 'Proposed changes' }),
       el('span', { className: 'proposal__count', text: `${proposal.changes.length} ${proposal.changes.length === 1 ? 'item' : 'items'}` }),
     ]),
-    el('p', { className: 'proposal__summary', text: proposal.summary }),
+    ...(proposal.summary ? [el('p', { className: 'proposal__summary', text: proposal.summary })] : []),
     el('ul', { className: 'proposal__list' }, rows),
     el('p', { className: 'proposal__note', text: 'Not applied yet. Confirm to apply these changes to your design.' }),
     el('div', { className: 'button-row' }, [confirm, cancel]),

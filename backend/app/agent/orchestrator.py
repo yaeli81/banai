@@ -28,11 +28,34 @@ DEFAULT_SUMMARY = "Here is a proposal based on your request."
 _UNSAFE_TEXT = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f​-‍  ‪-‮⁦-⁩﻿\U000e0000-\U000e007f]")
 
 
+_SENTENCE_END = re.compile(r"(?<=[.!?。])\s+")
+_WHITESPACE = re.compile(r"\s+")
+
+
+def fit_reply(text: str, limit: int) -> str:
+    """Keep whole sentences that fit in `limit`; otherwise cut the first one at a word, with an ellipsis."""
+    if len(text) <= limit:
+        return text
+    kept = ""
+    for sentence in _SENTENCE_END.split(text):
+        candidate = f"{kept} {sentence}".strip()
+        if len(candidate) > limit:
+            break
+        kept = candidate
+    if kept:
+        return kept
+    cut = text[: limit - 1]
+    if " " in cut:
+        cut = cut[: cut.rindex(" ")]
+    return cut.rstrip(" ,;:-") + "…"
+
+
 def clean_text(value: object, limit: int) -> str:
+    """Strip unsafe characters, collapse whitespace (the bubble shows one paragraph), fit to `limit`."""
     if not isinstance(value, str):
         return ""
-    text = _UNSAFE_TEXT.sub("", value).strip()
-    return text[:limit].rstrip()
+    text = _WHITESPACE.sub(" ", _UNSAFE_TEXT.sub("", value)).strip()
+    return fit_reply(text, limit)
 
 
 class _Rejected(Exception):

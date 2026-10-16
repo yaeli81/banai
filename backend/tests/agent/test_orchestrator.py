@@ -3,7 +3,8 @@ import copy
 import pytest
 
 from app.agent.llm import LlmError, LlmReply
-from app.agent.orchestrator import FALLBACK_REPLY, MAX_REPAIRS, run_turn
+from app.agent.orchestrator import FALLBACK_REPLY, MAX_REPAIRS, fit_reply, run_turn
+from app.agent.tools import MAX_REPLY_CHARS
 from app.services import signing
 from tests.agent.conftest import SIGNING_KEY, ScriptedLlm, propose, tool
 
@@ -83,9 +84,25 @@ def test_unsafe_characters_are_stripped_from_model_text(design, catalog):
     assert result["reply"] == "Which side?"
 
 
-def test_long_summary_is_capped(design, catalog):
+def test_long_summary_is_capped_to_three_bubble_lines(design, catalog):
     reply = propose([{"op": "update_dimensions", "depth": 650}], summary="x" * 5000)
-    assert len(turn(ScriptedLlm(reply), design, catalog)["reply"]) == 300
+    assert len(turn(ScriptedLlm(reply), design, catalog)["reply"]) <= MAX_REPLY_CHARS
+
+
+def test_long_reply_keeps_whole_sentences_that_fit():
+    text = "I'll widen it to 240 cm. " + "This extra sentence is far too long to fit into the chat bubble together with the first one. " * 3
+    assert fit_reply(text.strip(), MAX_REPLY_CHARS) == "I'll widen it to 240 cm."
+
+
+def test_one_long_sentence_is_cut_at_a_word_with_an_ellipsis():
+    text = "I will " + "really " * 30 + "widen it."
+    fitted = fit_reply(text, MAX_REPLY_CHARS)
+    assert len(fitted) <= MAX_REPLY_CHARS and fitted.endswith("really…")
+
+
+def test_newlines_are_collapsed_into_one_paragraph(design, catalog):
+    result = turn(ScriptedLlm(tool("ask_clarification", {"question": "Which\n\n\nside?"})), design, catalog)
+    assert result["reply"] == "Which side?"
 
 
 def test_plain_text_reply_is_accepted(design, catalog):

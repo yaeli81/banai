@@ -11,8 +11,12 @@ from app.domain.ops import MAX_OPS, Op
 
 PROPOSE = "propose_changes"
 CLARIFY = "ask_clarification"
-MAX_SUMMARY_CHARS = 300
-MAX_QUESTION_CHARS = 500
+# The chat bubble fits about 105 characters in three lines. The model is asked for <= 90;
+# the server enforces MAX_REPLY_CHARS (orchestrator.fit_reply), so a reply never exceeds three lines.
+REPLY_TARGET_CHARS = 90
+MAX_REPLY_CHARS = 105
+MAX_SUMMARY_CHARS = MAX_REPLY_CHARS
+MAX_QUESTION_CHARS = MAX_REPLY_CHARS
 
 # Pydantic-only keys that are not JSON Schema (or are noise for the model).
 _RENAMES = {"ge": "minimum", "le": "maximum"}
@@ -50,7 +54,7 @@ def _tools_cached() -> tuple:
                     "summary": {
                         "type": "string",
                         "maxLength": MAX_SUMMARY_CHARS,
-                        "description": "One or two plain sentences for the customer describing the proposal.",
+                        "description": f"ONE short sentence (max {REPLY_TARGET_CHARS} characters) for the customer.",
                     },
                     "ops": {"type": "array", "minItems": 1, "maxItems": MAX_OPS, "items": schema},
                 },
@@ -67,7 +71,8 @@ def _tools_cached() -> tuple:
             "description": "Ask the customer one short question when the request is ambiguous or not possible.",
             "parameters": {
                 "type": "object",
-                "properties": {"question": {"type": "string", "maxLength": MAX_QUESTION_CHARS}},
+                "properties": {"question": {"type": "string", "maxLength": MAX_QUESTION_CHARS,
+                                            "description": f"ONE short question (max {REPLY_TARGET_CHARS} characters)."}},
                 "required": ["question"],
                 "additionalProperties": False,
             },

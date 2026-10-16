@@ -58,7 +58,8 @@ export function createChatModel({ getRevision, agent = null }) {
     try {
       const result = await agent(agentHistory(messages));
       if (typeof result?.reply === 'string' && result.reply) push('assistant', result.reply);
-      if (result?.proposal) proposal = { ...result.proposal, id: result.proposal.proposalId };
+      // The reply bubble already carries the summary, so the card shows only the change list.
+      if (result?.proposal) proposal = { ...result.proposal, id: result.proposal.proposalId, summary: '' };
     } catch (error) {
       push('system', typeof error?.message === 'string' && error.code ? error.message : AGENT_ERROR_MESSAGE);
     } finally {
