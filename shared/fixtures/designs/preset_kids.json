@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 1500,
+    "height": 1800,
+    "depth": 550
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_kids_hang",
+      "width": 723,
+      "shelves": [
+        {
+          "id": "shf_kids_top",
+          "y": 1300,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_kids",
+          "y": 1100
+        }
+      ]
+    },
+    {
+      "id": "cmp_kids_store",
+      "width": 723,
+      "shelves": [
+        {
+          "id": "shf_kids1",
+          "y": 900,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_kids2",
+          "y": 1300,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [
+        {
+          "id": "drw_kids1",
+          "y": 0,
+          "height": 180,
+          "appearance": null
+        },
+        {
+          "id": "drw_kids2",
+          "y": 180,
+          "height": 180,
+          "appearance": null
+        },
+        {
+          "id": "drw_kids3",
+          "y": 360,
+          "height": 180,
+          "appearance": null
+        }
+      ],
+      "rails": []
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_kids",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "hinged",
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "sage_green"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_kids_left",
+        "compartmentIds": [
+          "cmp_kids_hang"
+        ],
+        "hingeSide": "left",
+        "appearance": null
+      },
+      {
+        "id": "dr_kids_right",
+        "compartmentIds": [
+          "cmp_kids_store"
+        ],
+        "hingeSide": "right",
+        "appearance": null
+      }
+    ]
+  }
+}

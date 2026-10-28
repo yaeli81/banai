@@ -18,6 +18,7 @@ import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
+import { presetDesign } from './domain/presets.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
 import { createExportDialog } from './export/exportDialog.js';
@@ -185,6 +186,10 @@ async function boot() {
   }
   mountStartScreen({
     onChoose: (entry) => {
+      if (entry.presetId) {
+        const { catalog: current, revision } = store.getState();
+        store.replaceDesign(presetDesign(entry.presetId, current), revision + 1);
+      }
       // All three entry points open the same editor; the chat ones focus the composer, the manual
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
       if (entry.focusesChat) chat.focus(entry.id);

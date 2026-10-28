@@ -26,4 +26,11 @@ export const ENTRY_POINTS = Object.freeze([
   }),
 ]);
 
+// Ready-made starting templates (src/domain/presets.js). They open the editor like the basic wardrobe.
+export const PRESET_ENTRIES = Object.freeze([
+  Object.freeze({ id: 'preset-kids', presetId: 'kids', title: "Kids' wardrobe", size: '150 × 180 × 55 cm', focusesChat: false }),
+  Object.freeze({ id: 'preset-sliding', presetId: 'sliding', title: 'Double wardrobe, sliding doors', size: '240 × 240 × 65 cm', focusesChat: false }),
+  Object.freeze({ id: 'preset-minimal', presetId: 'minimal', title: 'Minimalist wardrobe', size: '120 × 220 × 60 cm', focusesChat: false }),
+]);
+
 export const getEntryPoint = (id) => ENTRY_POINTS.find((entry) => entry.id === id) ?? null;

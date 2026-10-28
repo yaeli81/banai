@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 2400,
+    "height": 2400,
+    "depth": 650
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_his",
+      "width": 1173,
+      "shelves": [
+        {
+          "id": "shf_his",
+          "y": 2050,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_his",
+          "y": 1900
+        }
+      ]
+    },
+    {
+      "id": "cmp_hers",
+      "width": 1173,
+      "shelves": [
+        {
+          "id": "shf_hers",
+          "y": 2050,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [
+        {
+          "id": "drw_hers1",
+          "y": 0,
+          "height": 200,
+          "appearance": null
+        },
+        {
+          "id": "drw_hers2",
+          "y": 200,
+          "height": 200,
+          "appearance": null
+        }
+      ],
+      "rails": [
+        {
+          "id": "rail_hers",
+          "y": 1900
+        }
+      ]
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_couple",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "sliding",
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_slide1",
+        "compartmentIds": [],
+        "hingeSide": null,
+        "appearance": null
+      },
+      {
+        "id": "dr_slide2",
+        "compartmentIds": [],
+        "hingeSide": null,
+        "appearance": null
+      }
+    ]
+  }
+}

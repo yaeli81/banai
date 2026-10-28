@@ -2,11 +2,16 @@
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { createLogo } from '../ui/logo.js';
-import { ENTRY_POINTS } from './entryPoints.js';
+import { ENTRY_POINTS, PRESET_ENTRIES } from './entryPoints.js';
 
 export const START_FOOTNOTE = 'Designs are illustrative previews and are not manufacturing drawings.';
 
 export function mountStartScreen({ onChoose }) {
+  const choose = (entry) => {
+    dialog.close();
+    dialog.remove();
+    onChoose(entry);
+  };
   const cards = ENTRY_POINTS.map((entry) => {
     const action = el('button', { className: 'btn', attrs: { type: 'button' } }, [
       document.createTextNode(`${entry.action} `),
@@ -19,12 +24,17 @@ export function mountStartScreen({ onChoose }) {
       el('p', { className: 'entry-card__text', text: entry.description }),
       action,
     ]);
-    action.addEventListener('click', () => {
-      dialog.close();
-      dialog.remove();
-      onChoose(entry);
-    });
+    action.addEventListener('click', () => choose(entry));
     return card;
+  });
+  const presets = PRESET_ENTRIES.map((entry) => {
+    const button = el('button', { className: 'preset', attrs: { type: 'button' } }, [
+      el('span', { className: 'preset__title', text: entry.title }),
+      el('span', { className: 'preset__size', text: entry.size }),
+    ]);
+    button.dataset.testid = entry.id;
+    button.addEventListener('click', () => choose(entry));
+    return el('li', {}, [button]);
   });
 
   const dialog = el('dialog', { className: 'start', attrs: { 'aria-labelledby': 'start-title' } }, [
@@ -33,6 +43,10 @@ export function mountStartScreen({ onChoose }) {
       el('h1', { className: 'start__title', text: 'Design your wardrobe', attrs: { id: 'start-title' } }),
       el('p', { className: 'start__subtitle', text: 'Choose how you would like to begin. You can switch between the AI designer and manual editing at any time.' }),
       el('div', { className: 'start__cards' }, cards),
+      el('section', { className: 'start__presets', attrs: { 'aria-labelledby': 'start-presets-title' } }, [
+        el('h2', { className: 'start__presets-title', text: 'Or start from a template', attrs: { id: 'start-presets-title' } }),
+        el('ul', { className: 'start__preset-list' }, presets),
+      ]),
       el('p', { className: 'start__footnote', text: START_FOOTNOTE }),
       el('a', { className: 'start__footnote', text: 'הצהרת נגישות', attrs: { href: '/accessibility.html', lang: 'he' } }),
     ]),
